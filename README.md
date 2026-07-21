@@ -374,15 +374,3 @@ Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - **Production extensions:** S3 output, Prefect Cloud, and coarser `RESOLUTION` for faster previews are straightforward next steps.
 
 ---
-
-## Requirements
-
-- Python 3.9+
-- Network access to the SoFi COPC URL (for pipeline runs)
-- See `requirements.txt` for packages: `laspy`, `geopandas`, `prefect`, `fastapi`, `uvicorn`, `numpy`, `pandas`, `psutil`, …
-
----
-
-## License
-
-Interview / assessment submission — see repository owner for terms.
