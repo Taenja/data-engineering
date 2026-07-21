@@ -20,3 +20,5 @@ six==1.17.0
 tzdata==2026.3
 urllib3==2.6.3
 prefect>=2.14.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
