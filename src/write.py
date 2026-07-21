@@ -13,6 +13,8 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
 
+from enrich import enrich
+
 log = logging.getLogger("storage")
 
 # SoFi COPC CRS from header.parse_crs()
@@ -72,13 +74,15 @@ def verify_geoparquet(path: Union[str, Path] = DEFAULT_OUTPUT) -> gpd.GeoDataFra
 def main(rows: Optional[List[Row]] = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
-    if rows is None:
-        from enrich import enrich
+    log.info("start enriching data")
+    rows = enrich()
 
-        log.info("No rows passed — running enrich() then writing GeoParquet")
-        rows = enrich()
+    if not rows:
+        log.warning("No voxels produced — skipping write.")
+        return
 
     out = write_geoparquet(rows)
+    log.info("start writing data to GeoParquet")
     verify_geoparquet(out)
 
 
