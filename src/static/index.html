@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoFi Voxel Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2332;
+      --text: #e7ecf3;
+      --muted: #8b9bb4;
+      --accent: #3d8bfd;
+      --border: #2a3548;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: var(--panel);
+    }
+    h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    label { font-size: 0.85rem; color: var(--muted); }
+    select, button {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.85rem;
+    }
+    button {
+      cursor: pointer;
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button:hover { opacity: 0.9; }
+    #layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 57px);
+    }
+    #sidebar {
+      border-right: 1px solid var(--border);
+      overflow: auto;
+      padding: 14px;
+      background: var(--panel);
+    }
+    #map { height: 100%; width: 100%; }
+    .stat-grid { display: grid; gap: 8px; margin-bottom: 16px; }
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .stat-card .label { font-size: 0.75rem; color: var(--muted); }
+    .stat-card .value { font-size: 1rem; font-weight: 600; margin-top: 2px; }
+    .metric-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .metric-table th, .metric-table td {
+      text-align: left;
+      padding: 4px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    .metric-table th { color: var(--muted); font-weight: 500; }
+    #status { font-size: 0.8rem; color: var(--muted); margin-top: 12px; }
+    .section-title { font-size: 0.9rem; margin: 16px 0 8px; }
+    .legend {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(to right, #440154, #31688e, #35b779, #fde725);
+    }
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .class-legend { display: grid; gap: 6px; }
+    .class-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+    }
+    .class-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .class-bar-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      align-items: center;
+      font-size: 0.75rem;
+      margin-bottom: 6px;
+    }
+    .class-bar {
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .class-bar-fill { height: 100%; border-radius: 4px; }
+    .hidden { display: none !important; }
+    @media (max-width: 900px) {
+      #layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      #sidebar { max-height: 280px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SoFi Voxel Viewer</h1>
+    <div class="controls">
+      <label>Color by
+        <select id="colorBy">
+          <option value="classification_mode" selected>classification_mode</option>
+          <option value="intensity_mean">intensity_mean</option>
+          <option value="point_count">point_count</option>
+          <option value="point_density">point_density</option>
+          <option value="z_mean">z_mean</option>
+        </select>
+      </label>
+      <label>Sample limit
+        <select id="limit">
+          <option value="2000">2,000</option>
+          <option value="5000">5,000</option>
+          <option value="8000" selected>8,000</option>
+          <option value="15000">15,000</option>
+        </select>
+      </label>
+      <button id="reloadBtn" type="button">Reload data</button>
+      <button id="refreshBtn" type="button">Refresh map</button>
+    </div>
+  </header>
+
+  <div id="layout">
+    <aside id="sidebar">
+      <div class="stat-grid" id="summary"></div>
+      <h2 class="section-title">Metrics</h2>
+      <table class="metric-table" id="metricsTable">
+        <thead><tr><th>Metric</th><th>Min</th><th>Max</th><th>Mean</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div id="classBreakdown">
+        <h2 class="section-title">Classification mode (dataset)</h2>
+        <div id="classBars"></div>
+      </div>
+      <div id="legendSection">
+        <h2 class="section-title">Legend</h2>
+        <div id="continuousLegend">
+          <div class="legend" id="legendBar"></div>
+          <div class="legend-labels"><span id="legendMin">min</span><span id="legendMax">max</span></div>
+        </div>
+        <div id="classLegend" class="class-legend hidden"></div>
+      </div>
+      <p id="status">Loading…</p>
+    </aside>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const ASPRS_COLORS = {
+      0: "#888888", 1: "#aaaaaa", 2: "#c8a165", 3: "#7cb342",
+      4: "#43a047", 5: "#1b5e20", 6: "#e53935", 7: "#6d4c41",
+      8: "#ff9800", 9: "#1e88e5", 17: "#8e24aa",
+    };
+    const ASPRS_NAMES = {
+      0: "Never classified", 1: "Unclassified", 2: "Ground", 3: "Low vegetation",
+      4: "Medium vegetation", 5: "High vegetation", 6: "Building", 7: "Low point",
+      9: "Water", 17: "Bridge deck",
+    };
+
+    const map = L.map("map", { preferCanvas: true }).setView([33.95, -118.34], 15);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 20,
+      attribution: "&copy; OpenStreetMap",
+    }).addTo(map);
+
+    let layerGroup = L.layerGroup().addTo(map);
+
+    function classColor(code) {
+      return ASPRS_COLORS[code] || `hsl(${(code * 47) % 360}, 65%, 50%)`;
+    }
+
+    function classLabel(code) {
+      return ASPRS_NAMES[code] || `Class ${code}`;
+    }
+
+    function viridis(t) {
+      const stops = [
+        [0.0, [68, 1, 84]], [0.25, [59, 82, 139]], [0.5, [33, 145, 140]],
+        [0.75, [94, 201, 98]], [1.0, [253, 231, 37]],
+      ];
+      t = Math.max(0, Math.min(1, t));
+      let i = 0;
+      while (i < stops.length - 1 && t > stops[i + 1][0]) i++;
+      const [t0, c0] = stops[i];
+      const [t1, c1] = stops[i + 1] || stops[i];
+      const u = t1 === t0 ? 0 : (t - t0) / (t1 - t0);
+      const rgb = c0.map((v, j) => Math.round(v + u * (c1[j] - v)));
+      return `rgb(${rgb.join(",")})`;
+    }
+
+    function renderSummary(stats) {
+      document.getElementById("summary").innerHTML = `
+        <div class="stat-card"><div class="label">Voxels</div><div class="value">${stats.rows.toLocaleString()}</div></div>
+        <div class="stat-card"><div class="label">CRS</div><div class="value">${stats.crs || "—"}</div></div>
+        <div class="stat-card"><div class="label">X range (m)</div><div class="value">${stats.bounds.voxel_x.map(v => v.toFixed(0)).join(" – ")}</div></div>
+        <div class="stat-card"><div class="label">Y range (m)</div><div class="value">${stats.bounds.voxel_y.map(v => v.toFixed(0)).join(" – ")}</div></div>
+      `;
+
+      const tbody = document.querySelector("#metricsTable tbody");
+      tbody.innerHTML = "";
+      for (const [name, m] of Object.entries(stats.metrics || {})) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${name}</td><td>${m.min.toFixed(2)}</td><td>${m.max.toFixed(2)}</td><td>${m.mean.toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+      }
+
+      const bars = document.getElementById("classBars");
+      bars.innerHTML = "";
+      const entries = Object.entries(stats.classification_mode || {})
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+      const total = entries.reduce((s, e) => s + e.count, 0) || 1;
+      for (const { label, count } of entries) {
+        const code = parseInt(label, 10);
+        const color = classColor(code);
+        const pct = (100 * count / total).toFixed(1);
+        const row = document.createElement("div");
+        row.className = "class-bar-row";
+        row.innerHTML = `
+          <div>
+            <div style="margin-bottom:2px">${label}</div>
+            <div class="class-bar"><div class="class-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+          </div>
+          <div>${count.toLocaleString()} (${pct}%)</div>
+        `;
+        bars.appendChild(row);
+      }
+    }
+
+    function renderLegend(data) {
+      const continuous = document.getElementById("continuousLegend");
+      const classLegend = document.getElementById("classLegend");
+      if (data.is_categorical) {
+        continuous.classList.add("hidden");
+        classLegend.classList.remove("hidden");
+        const codes = Object.keys(data.class_counts || {})
+          .map(Number)
+          .sort((a, b) => a - b);
+        classLegend.innerHTML = codes.map(code => `
+          <div class="class-legend-item">
+            <span class="class-swatch" style="background:${classColor(code)}"></span>
+            <span>${code} — ${classLabel(code)} (${data.class_counts[String(code)].count.toLocaleString()} in sample)</span>
+          </div>
+        `).join("");
+      } else {
+        continuous.classList.remove("hidden");
+        classLegend.classList.add("hidden");
+        const values = data.color;
+        document.getElementById("legendMin").textContent = Math.min(...values).toFixed(2);
+        document.getElementById("legendMax").textContent = Math.max(...values).toFixed(2);
+      }
+    }
+
+    async function loadStats() {
+      const res = await fetch("/stats");
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function loadSample() {
+      const colorBy = document.getElementById("colorBy").value;
+      const limit = document.getElementById("limit").value;
+      const res = await fetch(`/viz/sample?color_by=${colorBy}&limit=${limit}`);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function drawMap(data) {
+      layerGroup.clearLayers();
+      renderLegend(data);
+
+      const isClass = data.is_categorical;
+      let min = 0, max = 1, span = 1;
+      if (!isClass) {
+        const values = data.color;
+        min = Math.min(...values);
+        max = Math.max(...values);
+        span = max - min || 1;
+      }
+
+      for (let i = 0; i < data.count; i++) {
+        const cls = data.classification_mode[i];
+        const fill = isClass
+          ? classColor(data.color[i])
+          : viridis((data.color[i] - min) / span);
+
+        L.circleMarker([data.lat[i], data.lon[i]], {
+          radius: 3,
+          weight: 0,
+          fillColor: fill,
+          fillOpacity: 0.8,
+        }).bindPopup(`
+          <strong>${data.voxel_id[i]}</strong><br/>
+          UTM: ${data.x[i].toFixed(1)}, ${data.y[i].toFixed(1)}<br/>
+          z_mean: ${data.z[i].toFixed(2)} m<br/>
+          intensity: ${data.intensity_mean[i].toFixed(0)}<br/>
+          points: ${data.point_count[i]}<br/>
+          <strong>class ${cls}: ${classLabel(cls)}</strong>
+        `).addTo(layerGroup);
+      }
+
+      const b = data.bounds;
+      map.fitBounds([[b.south, b.west], [b.north, b.east]], { padding: [20, 20] });
+    }
+
+    async function refreshAll() {
+      const status = document.getElementById("status");
+      status.textContent = "Loading…";
+      try {
+        const [stats, sample] = await Promise.all([loadStats(), loadSample()]);
+        renderSummary(stats);
+        drawMap(sample);
+        status.textContent = `Showing ${sample.count.toLocaleString()} voxels · colored by ${sample.color_by}`;
+      } catch (err) {
+        status.textContent = `Error: ${err.message}`;
+      }
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", refreshAll);
+    document.getElementById("colorBy").addEventListener("change", refreshAll);
+    document.getElementById("limit").addEventListener("change", refreshAll);
+    document.getElementById("reloadBtn").addEventListener("click", async () => {
+      await fetch("/reload", { method: "POST" });
+      await refreshAll();
+    });
+
+    refreshAll();
+  </script>
+</body>
+</html>
