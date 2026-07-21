@@ -14,11 +14,10 @@ Usage (from src/):
   python data_enrich.py
 """
 
-from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 from laspy import Bounds, CopcReader
@@ -34,7 +33,7 @@ VOXEL_SIZE = 5.0
 # COPC level-of-detail passed to reader.query():
 #   None  = densest available points in each tile (slowest, most complete)
 #   2.0   = coarser octree level (faster smoke tests, fewer points per tile)
-RESOLUTION = None
+RESOLUTION: Optional[float] = None
 
 N_CLASSES = 32  # histogram bins cover ASPRS codes 0–31
 
