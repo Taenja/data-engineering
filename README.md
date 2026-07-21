@@ -241,17 +241,17 @@ Tasks have retries and structured logging (tiles processed, points queried, cove
 
 I used **Cursor** as an AI-assisted coding agent throughout. My role was to define the architecture, data flow, and enrichment logic; AI helped me move faster on implementation.
 
-| Area | How AI was used | What I did myself |
-|------|-----------------|-------------------|
-| **Research** | Understanding voxel grids, COPC streaming, and ASPRS LAS point classification | Chose voxel downsampling over ground extraction / clustering based on the task and dataset |
-| **Code structure** | Suggesting module layout, function signatures, and README sections | Decided the tile → voxel → Parquet pipeline and reviewed all logic |
-| **Prefect** | Drafting `@task` / `@flow` boilerplate, retries, and logging patterns | Wired tasks to my `enrich` and `write` modules; validated coverage stats in logs |
-| **Visualization** | FastAPI endpoints in `api.py` and the Leaflet HTML viewer — including ASPRS colour scales and categorical vs continuous legends | I have used Leaflet before; Cursor made integrating it with FastAPI and styling the viewer much faster |
-| **Boilerplate scripts** | Faster first drafts of `verify.py`, CLI argparse, and docstrings | Ran and corrected outputs (RSS checks, row counts, CRS, metric ranges) |
+| Area | How AI was used 
+|------|-----------------
+| **Research** | Understanding voxel grids, COPC streaming, and ASPRS LAS point classification
+| **Code structure** | Suggesting module layout, function signatures, and README sections
+| **Prefect** | Drafting `@task` / `@flow` retries, and logging patterns
+| **Visualization** | FastAPI endpoints in `api.py` and the Leaflet HTML viewer — including ASPRS colour scales and categorical vs continuous legends, I have used Leaflet before; Cursor made integrating it with FastAPI and styling the viewer much faster
+| **Boilerplate scripts** | Faster first drafts of `verify.py`, CLI argparse, and docstrings
 
 **Manually verified:** COPC header via `eda.py`, bounded memory via RSS logs in `stream.py`, full pipeline run against the live S3 URL, GeoParquet reload via Prefect `verify_output` and `verify.py`, and map/API spot checks in the viewer.
 
-Also to clean up the README.md file and make it professional :)
+Also I used AI to clean up the README.md file and make it professional :)
 
 ---
 
@@ -360,8 +360,6 @@ Each row in `sofi_voxels.parquet` represents one voxel:
 | GET | `/voxels/{voxel_id}` | Single voxel record |
 | GET | `/viz/sample` | Map sample (`limit`, `color_by`) |
 | POST | `/reload` | Clear cache after pipeline re-run |
-
-Interactive docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
 ---
 
