@@ -42,9 +42,6 @@ To point the API at a different file:
 VOXEL_PARQUET=/path/to/other.parquet uvicorn api:app --reload --port 8000
 ```
 
-![SoFi Voxel Viewer — add your screenshot as docs/images/viewer_screenshot.png](docs/images/viewer_screenshot.png)
-
----
 
 ## Full pipeline — run from scratch
 
@@ -159,6 +156,8 @@ You can also verify via the API: `curl http://127.0.0.1:8000/stats` (after start
 
 I scoped the task around **voxel-grid downsampling with statistical profiling** (one of the suggested enrichment paths): stream COPC tiles, aggregate points into 5 m voxels, and write GeoParquet. The pipeline is split into small modules (`eda` → `stream` → `enrich` → `write`) orchestrated by Prefect, with a FastAPI viewer on top.
 
+![Workflow-sketch](/docs/images/workflow-sketch.jpeg)
+
 ### 1. Exploratory data analysis (`eda.py`)
 
 The first step reads **only the COPC header** over HTTP — not the full point cloud — to inspect:
@@ -227,6 +226,8 @@ Tasks have retries and structured logging (tiles processed, points queried, cove
 
 ### 6. Visualization API (`api.py` + `static/index.html`)
 
+![SoFi Voxel Viewer](/docs/images/sofi-viewer.png)
+
 **FastAPI** serves:
 
 - `/` — Leaflet HTML viewer
@@ -249,6 +250,8 @@ I used **Cursor** as an AI-assisted coding agent throughout. My role was to defi
 | **Boilerplate scripts** | Faster first drafts of `verify.py`, CLI argparse, and docstrings | Ran and corrected outputs (RSS checks, row counts, CRS, metric ranges) |
 
 **Manually verified:** COPC header via `eda.py`, bounded memory via RSS logs in `stream.py`, full pipeline run against the live S3 URL, GeoParquet reload via Prefect `verify_output` and `verify.py`, and map/API spot checks in the viewer.
+
+Also to clean up the README.md file and make it professional :)
 
 ---
 
