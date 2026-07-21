@@ -75,7 +75,8 @@ def main(rows: Optional[List[Row]] = None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
     log.info("start enriching data")
-    rows = enrich()
+    result = enrich()
+    rows = result["rows"]
 
     if not rows:
         log.warning("No voxels produced — skipping write.")
