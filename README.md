@@ -146,7 +146,6 @@ The script prints file metadata, schema, sample rows, geometry preview, numeric 
 | CRS | EPSG:32611 |
 | Schema | `point_count`, `z_mean`, `classification_mode`, `geometry`, … |
 | Geometry | Point (3D centroids) |
-| Nulls | No nulls in key metric columns |
 
 You can also verify via the API: `curl http://127.0.0.1:8000/stats` (after starting `uvicorn`).
 
@@ -187,7 +186,7 @@ cd src && python stream.py --max-nonempty-tiles 3
 
 ### 3. Voxel enrichment (`enrich.py`)
 
-Points within each streamed tile are binned into **5×5×5 m voxels** (similar to pixels in 2D raster data). This is analogous to **zonal statistics**: all points falling in a voxel are summarized into one record.
+Points within each streamed tile are binned into **5×5×5 m voxels** (similar to pixels in 2D raster data). This is analogous to **zonal statistics** for vectors with which I work on daily basis: all points falling in a voxel are summarized into one record.
 
 **Per-voxel metrics:**
 
@@ -227,6 +226,7 @@ Tasks have retries and structured logging (tiles processed, points queried, cove
 ### 6. Visualization API (`api.py` + `static/index.html`)
 
 ![SoFi Voxel Viewer](/docs/images/sofi-viewer.png)
+ Img: The mean elevation visualised
 
 **FastAPI** serves:
 
@@ -244,14 +244,12 @@ I used **Cursor** as an AI-assisted coding agent throughout. My role was to defi
 | Area | How AI was used 
 |------|-----------------
 | **Research** | Understanding voxel grids, COPC streaming, and ASPRS LAS point classification
-| **Code structure** | Suggesting module layout, function signatures, and README sections
+| **Code structure** | Suggesting module layout, function signatures, and README restructuring/cleanup to make it professional :)
 | **Prefect** | Drafting `@task` / `@flow` retries, and logging patterns
 | **Visualization** | FastAPI endpoints in `api.py` and the Leaflet HTML viewer — including ASPRS colour scales and categorical vs continuous legends, I have used Leaflet before; Cursor made integrating it with FastAPI and styling the viewer much faster
 | **Boilerplate scripts** | Faster first drafts of `verify.py`, CLI argparse, and docstrings
 
-**Manually verified:** COPC header via `eda.py`, bounded memory via RSS logs in `stream.py`, full pipeline run against the live S3 URL, GeoParquet reload via Prefect `verify_output` and `verify.py`, and map/API spot checks in the viewer.
-
-Also I used AI to clean up the README.md file and make it professional :)
+**Manually verified:** COPC header via `eda.py`, bounded memory via RSS logs in `stream.py`, full pipeline run against the live S3 URL, GeoParquet reload via Prefect `verify_output` and `verify.py`, and map/API spot checks in the viewer. 
 
 ---
 
@@ -369,6 +367,6 @@ Each row in `sofi_voxels.parquet` represents one voxel:
 - **COPC over HTTP:** No full file download — only header, index, and tile-specific byte ranges are fetched.
 - **Incremental aggregation:** Voxel stats use running sums and class histograms, not full point lists.
 - **Separation of concerns:** `stream`, `enrich`, `write`, `pipeline`, and `api` are independent modules; each can be run standalone for development.
-- **Production extensions:** S3 output, Prefect Cloud, and coarser `RESOLUTION` for faster previews are straightforward next steps.
+- **Production extensions:** S3 output or spatial database (even better), Prefect Cloud, no hard coded variables, multi-processing for faster runs and are straightforward next steps.
 
 ---

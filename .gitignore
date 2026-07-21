@@ -20,6 +20,6 @@ build/
 .vscode/
 *.swp
 
-# OS
+#OS
 .DS_Store
 Thumbs.db
