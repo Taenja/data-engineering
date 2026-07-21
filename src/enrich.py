@@ -194,46 +194,53 @@ def enrich(
     tile_size: float = TILE_SIZE,
     voxel_size: float = VOXEL_SIZE,
     resolution: Optional[float] = RESOLUTION,
-) -> List[dict]:
+    max_tiles: Optional[int] = None,
+) -> Dict[str, object]:
     """
-    Main enrichment loop: stream COPC tiles → accumulate voxels → return rows.
+    Main enrichment loop: stream COPC tiles → accumulate voxels → return rows + stats.
     """
-
     voxels: Voxels = {}
     class_hist: ClassHist = {}
     total_points = 0
     tiles = 0
     peak = rss_mb()
     t0 = time.perf_counter()
+    header_point_count = 0
+    tiles_in_extent = 0
+    tiles_planned = 0
 
     log.info(
-        "Enrich start | voxel=%.1f tile=%.1f resolution=%s",
+        "Enrich start | voxel=%.1f tile=%.1f resolution=%s max_tiles=%s",
         voxel_size,
         tile_size,
         resolution,
+        max_tiles,
     )
     log.info("RSS before open: %.1f MB", peak)
 
     with CopcReader.open(url) as reader:
+        header_point_count = int(reader.header.point_count)
         xmin, ymin, zmin = reader.header.mins
         xmax, ymax, zmax = reader.header.maxs
 
-        total_tiles = sum(1 for _ in iter_xy_tiles(xmin, ymin, xmax, ymax, tile_size))
-        log.info("Total tiles to process: %d", total_tiles)
+        tiles_in_extent = sum(1 for _ in iter_xy_tiles(xmin, ymin, xmax, ymax, tile_size))
+        tiles_planned = (
+            tiles_in_extent if max_tiles is None else min(tiles_in_extent, max_tiles)
+        )
+        log.info("Total tiles to process: %d (extent has %d)", tiles_planned, tiles_in_extent)
 
         for x0, y0, x1, y1 in iter_xy_tiles(xmin, ymin, xmax, ymax, tile_size):
-            # Spatial query window: this XY tile, full Z extent of the cloud.
             bounds = Bounds(
                 mins=np.array([x0, y0, zmin]),
                 maxs=np.array([x1, y1, zmax]),
             )
             kwargs = {"bounds": bounds}
             if resolution is not None:
-                kwargs["resolution"] = resolution  # COPC LOD thinning
+                kwargs["resolution"] = resolution
 
             points = reader.query(**kwargs)
             n = accumulate_points(points, voxel_size, voxels, class_hist)
-            del points  # release tile before next query (bounded memory)
+            del points
 
             total_points += n
             tiles += 1
@@ -241,8 +248,9 @@ def enrich(
             peak = max(peak, mem)
 
             log.info(
-                "tile %d | +%d pts (total %d) | voxels %d | RSS %.1f MB (peak %.1f)",
+                "tile %d/%d | +%d pts (total %d) | voxels %d | RSS %.1f MB (peak %.1f)",
                 tiles,
+                tiles_planned,
                 n,
                 total_points,
                 len(voxels),
@@ -250,21 +258,44 @@ def enrich(
                 peak,
             )
 
-            rows = voxels_to_rows(voxels, class_hist, voxel_size)
+            if max_tiles is not None and tiles >= max_tiles:
+                break
+
+        rows = voxels_to_rows(voxels, class_hist, voxel_size)
+
+    full_extent = max_tiles is None
+    full_resolution = resolution is None
+    all_tiles_processed = tiles >= tiles_planned
+
+    stats = {
+        "header_point_count": header_point_count,
+        "tiles_in_extent": tiles_in_extent,
+        "tiles_planned": tiles_planned,
+        "tiles_processed": tiles,
+        "points_queried": total_points,
+        "voxels": len(rows),
+        "peak_rss_mb": peak,
+        "elapsed_s": time.perf_counter() - t0,
+        "full_extent_requested": full_extent,
+        "full_resolution_requested": full_resolution,
+        "all_tiles_processed": all_tiles_processed,
+        "all_points_processed": full_extent and full_resolution and all_tiles_processed,
+    }
 
     log.info(
         "Done in %.1fs | tiles=%d points=%d voxels=%d peak_RSS=%.1f MB",
-        time.perf_counter() - t0,
+        stats["elapsed_s"],
         tiles,
         total_points,
         len(rows),
         peak,
     )
 
-    return rows
+    return {"rows": rows, "stats": stats}
 
 def main() -> None:
-    rows = enrich()
+    result = enrich()
+    rows = result["rows"]
     if not rows:
         log.warning("No voxels produced.")
         return
