@@ -1,5 +1,8 @@
 """
 Exploratory Data Analysis for the dataset to check the CRS, columns, data types, and other information.
+
+Usage (from src/):
+  python eda.py
 """
 
 from laspy import CopcReader
