@@ -193,7 +193,7 @@ def enrich(
     url: str = URL,
     tile_size: float = TILE_SIZE,
     voxel_size: float = VOXEL_SIZE,
-    resolution: float | None = RESOLUTION,
+    resolution: Optional[float] = RESOLUTION,
 ) -> List[dict]:
     """
     Main enrichment loop: stream COPC tiles → accumulate voxels → return rows.
